@@ -26,7 +26,7 @@ class TCPClient {
             isAsker = inFromServer.readLine().equals("true");
 
             if (isAsker) {
-                System.out.println("Is your number 1... or 2?!?");
+                System.out.println("Is your number 1... or 2!?!");
 
                 int oneOrTwo = inFromUser.readLine().charAt(0) - 48;
 
