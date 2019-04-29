@@ -7,12 +7,18 @@ import java.util.*;
 
 class TCPServer{
 
+    //Keeps track of the max streak of all current games being played on this server.
+    public static int maxStreak = 0;
+    public static String maxStreakName = "TBD";
+
     public static void main(String argv[]) throws Exception {
 
+        //Sets up the welcome socket
         ServerSocket welcomeSocket = new ServerSocket(10000);
 
         System.out.println("Waiting for incoming connection Request...");
 
+        //Connects both players and starts a new thread for their game.
         while (true) {
             Socket player1ConnectionSocket = welcomeSocket.accept();
             Socket player2ConnectionSocket = welcomeSocket.accept();
@@ -25,14 +31,25 @@ class TCPServer{
         }
     }
 
+    //We must create this class and implement runnable in order to use multithreading.
     final static class Game implements Runnable {
 
+        //CRLF stands for Carriage Return Line Feed and we need to end every string we send out with it for it to be
+        //read successfully by the clients.
         final static String CRLF = "\r\n";
+        //Connect the two player's sockets
         Socket player1ConnectionSocket;
         Socket player2ConnectionSocket;
+        //Holds the number of the player who is asking 1 or 2
         int askerNum = 0;
+        //Holds the number of the player who is guessing 1 or 2
         int guesserNum = 0;
+        //Keeps track of the current streak. This number is reset every time the guesser is correct.
+        int currentStreak = 0;
+        //This keeps track of which player is the asker and is very important. It is used to know which player is which.
         Boolean isPlayer1Asker = true;
+        String player1Name;
+        String player2Name;
 
         //Constructor
         public Game(Socket player1Socket, Socket player2Socket) throws Exception {
@@ -49,8 +66,7 @@ class TCPServer{
         }
 
         private void playGame() throws Exception {
-            //Get the two clients, the guesser and the asker.
-
+            //Establish input and output from and to the clients.
             BufferedReader inFromClientPlayer1 = new BufferedReader
                     (new InputStreamReader(player1ConnectionSocket.getInputStream()));
 
@@ -61,80 +77,110 @@ class TCPServer{
 
             DataOutputStream outToClientPlayer2 = new DataOutputStream(player2ConnectionSocket.getOutputStream());
 
+            //Players are prompted in the client to provide their name. While this is a nice feature to begin with imo,
+            //it is especially useful when we utilize multi-threading as it allows a bunch of players to know who they
+            //are playing against.
+            player1Name = inFromClientPlayer1.readLine();
+            player2Name = inFromClientPlayer2.readLine();
+
+            //Tells the players who their opponent is.
+            outToClientPlayer1.writeBytes("You are playing against " + player2Name + CRLF);
+            outToClientPlayer2.writeBytes("You are playing against " + player1Name + CRLF);
+
             while (true)
-
             {
-
-                //Tell each player whether they are the asker or the guesser based on the isPlayer1Asker Boolean
-                if (isPlayer1Asker) {
-                    outToClientPlayer1.writeBytes("true" + CRLF);
-                    outToClientPlayer2.writeBytes("false" + CRLF);
-                } else {
-                    outToClientPlayer1.writeBytes("false" + CRLF);
-                    outToClientPlayer2.writeBytes("true" + CRLF);
-                }
-
-                System.out.println("Waiting for number from Asker");
+                //Tell each client whether they are the asker or the guesser based on the isPlayer1Asker Boolean
+                //This information is not explicitly told to the player but is used by the client to know its role.
+                outToClientPlayer1.writeBytes(isPlayer1Asker.toString() + CRLF);
+                //You can't use '!' in front of a boolean and call toString() on it so we set the string here instead.
+                Boolean isP1Opposite = !isPlayer1Asker;
+                outToClientPlayer2.writeBytes(isP1Opposite.toString() + CRLF);
 
                 //If player1 is the asker, receive its number, otherwise, query player2 for its asking number
+                String askerIntConverter = (isPlayer1Asker) ? inFromClientPlayer1.readLine() : inFromClientPlayer2.readLine();
+                askerNum = Integer.parseInt(askerIntConverter);
+
+                //Confirm with the guesser that they have selected their number
                 if (isPlayer1Asker) {
-                    String askerIntConverter = inFromClientPlayer1.readLine();
-                    askerNum = Integer.parseInt(askerIntConverter);
                     outToClientPlayer1.writeBytes("You have selected: " + askerNum + CRLF);
-                    outToClientPlayer2.writeBytes("Ready for guess transmission!" + CRLF);
                 } else {
-                    String askerIntConverter = inFromClientPlayer2.readLine();
-                    askerNum = Integer.parseInt(askerIntConverter);
                     outToClientPlayer2.writeBytes("You have selected: " + askerNum + CRLF);
-                    outToClientPlayer1.writeBytes("Ready for guess transmission!" + CRLF);
                 }
 
-                System.out.println("Waiting for number from Guesser");
-
                 //If player2 is the guesser, receive its number, otherwise, query player1 for its guessing number
+                String guesserIntConverter = (isPlayer1Asker) ? inFromClientPlayer2.readLine() : inFromClientPlayer1.readLine();
+                guesserNum = Integer.parseInt(guesserIntConverter);
+
+                //Confirm with the guesser that they have selected their number
                 if (isPlayer1Asker) {
-                    String guesserIntConverter = inFromClientPlayer2.readLine();
-                    guesserNum = Integer.parseInt(guesserIntConverter);
                     outToClientPlayer2.writeBytes("You have selected: " + guesserNum + CRLF);
                 } else {
-                    String guesserIntConverter = inFromClientPlayer1.readLine();
-                    guesserNum = Integer.parseInt(guesserIntConverter);
                     outToClientPlayer1.writeBytes("You have selected: " + guesserNum + CRLF);
                 }
 
-                //Handle the results. If the asker and guesser said the same number, they switch roles.
-                //Otherwise, they play another round exactly the same. Do a countdown to make it exciting.
+                //Implements a countdown that appears as
+                //"3...
+                //2...
+                //1..."
                 int countDown = 3;
+                //Get the start time so we can check how many seconds have passed since the start.
                 long startTime = System.currentTimeMillis();
+                //While the countdown is greater than 0, print the three numbers
                 while (countDown >= 0) {
                     long curTime = System.currentTimeMillis();
+                    //If a second has passed, print the current value of countdown to both players
                     if (curTime - startTime > 1000) {
                         if (countDown != 0) {
-                            outToClientPlayer1.writeBytes(countDown + CRLF);
-                            outToClientPlayer2.writeBytes(countDown + CRLF);
+                            outToClientPlayer1.writeBytes(countDown + "..." + CRLF);
+                            outToClientPlayer2.writeBytes(countDown + "..." + CRLF);
                         }
+                        //Set the new value of our startTime to curTime so that we wait for the next second to pass.
                         startTime = curTime;
                         countDown -= 1;
                     }
                 }
 
-                if (askerNum == guesserNum) {
-                    outToClientPlayer1.writeBytes("The GUESSER was CORRECT. You will now switch roles!" + CRLF);
-                    outToClientPlayer2.writeBytes("The GUESSER was CORRECT. You will now switch roles!" + CRLF);
-                    isPlayer1Asker = !isPlayer1Asker;
+                sendGameResultsToClient(outToClientPlayer1, outToClientPlayer2);
+            }
+        }
+
+        private void sendGameResultsToClient(DataOutputStream outToClientPlayer1, DataOutputStream outToClientPlayer2) throws Exception {
+            //This connects the names of the guessers and askers with their correct player names.
+            //This makes it much easier to print out the results of the game without having to use even more if statements.
+            String askerName = (isPlayer1Asker) ? player1Name : player2Name;
+            String guesserName = (isPlayer1Asker) ? player2Name : player1Name;
+            //If the numbers are the same, then the guesser was correct and the players now switch their roles.
+            if (askerNum == guesserNum) {
+                currentStreak = 0;
+                outToClientPlayer1.writeBytes(guesserName + " was CORRECT. You will now switch roles!" + CRLF);
+                outToClientPlayer2.writeBytes(guesserName + " was CORRECT. You will now switch roles!" + CRLF);
+                //Switch the roles.
+                isPlayer1Asker = !isPlayer1Asker;
+            } else {
+                //Since the guesser failed, the asker gets a point.
+                currentStreak += 1;
+                //Since the currentStreak is only 1, it is unnecessary to tell the player their streak so we don't.
+                //Everything here is pretty self-explanatory, these statements just print based on the streak.
+                //Also, Java doesn't allow switch statements to have conditionals, otherwise I would have used them.
+                if (currentStreak == 1) {
+                    outToClientPlayer1.writeBytes(guesserName + " was INCORRECT. Play another round!" + CRLF);
+                    outToClientPlayer2.writeBytes(guesserName + " was INCORRECT. Play another round!" + CRLF);
+                } else if (currentStreak < 3) {
+                    outToClientPlayer1.writeBytes(guesserName + " was INCORRECT. The current streak is " + currentStreak + ". Play another round!" + CRLF);
+                    outToClientPlayer2.writeBytes(guesserName + " was INCORRECT. The current streak is " + currentStreak + ". Play another round!" + CRLF);
                 } else {
-                    outToClientPlayer1.writeBytes("The GUESSER was INCORRECT. Play another round!" + CRLF);
-                    outToClientPlayer2.writeBytes("The GUESSER was INCORRECT. Play another round!" + CRLF);
+                    outToClientPlayer1.writeBytes(guesserName + " was INCORRECT. " + askerName.toUpperCase() + " IS ON FIRE!!! " + currentStreak + " in a row!" + CRLF);
+                    outToClientPlayer2.writeBytes(guesserName + " was INCORRECT. " + askerName.toUpperCase() + " IS ON FIRE!!! " + currentStreak + " in a row!" + CRLF);
                 }
             }
+            //If the currentStreak is greater than the maxStreak, replace the value of maxStreak. Same with maxStreak Name.
+            if (currentStreak > maxStreak) {
+                maxStreak = currentStreak;
+                maxStreakName = askerName;
+            }
+            //Tell the players what the current max streak is.
+            outToClientPlayer1.writeBytes(maxStreakName + " holds the max streak with a streak of " + maxStreak + CRLF);
+            outToClientPlayer2.writeBytes(maxStreakName + " holds the max streak with a streak of " + maxStreak + CRLF);
         }
     }
 }
-
-/*
-Pick a starting guesser and a starting asker based on who connects first or a random boolean
-Wait for the asker to submit their number
-Once the asker has submitted their number, query the guesser for theirs
-When both have submitted their numbers, compare them and return if the guesser was correct
-If the guesser was correct, swap the guesser and the asker and notify the clients of this.
- */
