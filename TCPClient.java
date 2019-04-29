@@ -13,8 +13,8 @@ class TCPClient {
 
         BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
 
-        //Substitue it in the IPAddress of the server here.
-        Socket clientSocket = new Socket("172.18.58.240", 10000);
+        //Substitute  in the IPAddress of the server here.
+        Socket clientSocket = new Socket("localhost", 10000);
 
         DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
 
