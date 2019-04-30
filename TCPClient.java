@@ -14,16 +14,21 @@ class TCPClient {
         BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
 
         //Substitute  in the IPAddress of the server here.
-        Socket clientSocket = new Socket("localhost", 10000);
+        Socket clientSocket = new Socket("172.18.58.240", 10000);
 
         DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
 
         BufferedReader inFromServer = new BufferedReader(new InputStreamReader(
                 clientSocket.getInputStream()));
 
-        //Gets the users name and sends it to the server.
-        System.out.println("What is your name?");
+        //Gets the users name from the server.
+        System.out.println(inFromServer.readLine());
         String name = inFromUser.readLine();
+        //Checks to make sure that the user entered a value
+        while (name.equals("")) {
+            System.out.println("You must provide a name!");
+            name = inFromUser.readLine();
+        }
         outToServer.writeBytes(name + CRLF);
 
         //Prints out the name of the opponent.

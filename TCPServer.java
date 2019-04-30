@@ -101,7 +101,10 @@ class TCPServer{
          */
         private void getPlayerNamesAndDisplayOpponentToClients(DataOutputStream outToClientPlayer1, DataOutputStream outToClientPlayer2,
                                                                BufferedReader inFromClientPlayer1, BufferedReader inFromClientPlayer2) throws Exception {
-                player1Name = inFromClientPlayer1.readLine();
+            outToClientPlayer1.writeBytes("What is your name?" + CRLF);
+            outToClientPlayer2.writeBytes("What is your name?" + CRLF);
+
+            player1Name = inFromClientPlayer1.readLine();
                 player2Name = inFromClientPlayer2.readLine();
 
                 //Tells the players who their opponent is.
